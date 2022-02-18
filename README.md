@@ -9,7 +9,7 @@ The general idea is to substitute the classical KL divergence of the standard VA
 
 The latter allow us to compute in a closed form the divergence between Mixture of Gaussians, while the KL divergence can be only approximated between MoGs.
 
-In this way it is possible to furnish as prior distribution a mixture of multivariate gaussians (assuming <img src="https://latex.codecogs.com/svg.image?\mu, \sigma \in \mathbb{R}_{> 1}" title="\mu, \sigma \in \mathbb{R}_{> 1}" />)
+In this way it is possible to furnish as prior distribution a mixture of multivariate gaussians (assuming <img src="https://latex.codecogs.com/svg.image?\mu,&space;\sigma&space;\in&space;\mathbb{R}_{>1}" title="\mu, \sigma \in \mathbb{R}_{>1}"/>)
 
 <img src="https://latex.codecogs.com/svg.image?p(z)&space;=&space;\frac{1}{K}&space;\sum_{k=1}^{K}&space;\mathcal{N}&space;(&space;z&space;|&space;\mu_{k,\phi},&space;\sigma_{k,\phi}^2&space;)" title="p(z) = \frac{1}{K} \sum_{k=1}^{K} \mathcal{N} ( z | \mu_{k,\phi}, \sigma_{k,\phi}^2 )" />
 
