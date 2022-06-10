@@ -97,13 +97,6 @@ class CSRAE(nn.Module):
             self.prior_means.append(torch.randn(self.latent_dim,))
             self.prior_std.append(torch.randn(self.latent_dim,))
 
-
-        # Decoder for the prior distribution: given z, output the mean and variances of the mixture of gaussians prior
-        self.decode_second = nn.Linear(latent_dim, self.K*latent_dim)
-        self.decode_third = nn.Linear(self.K*latent_dim, self.K*2*latent_dim)
-
-        self.decoder_prior = nn.Sequential(self.decode_second, self.decode_third)
-
         # weights initialization
         for m in self.modules():
             if isinstance(m, nn.Linear):
@@ -120,16 +113,6 @@ class CSRAE(nn.Module):
 
 
     def decoder(self, z:Tensor) -> Tensor:
-        priors = self.decoder_prior(z)
-        priors = torch.mean( priors, dim=0 )
-        priors = torch.tensor_split( priors, 2*self.K )
-
-        self.prior_means = []
-        self.prior_std = []
-        for mu, std in pairwise(priors):
-            self.prior_means.append(mu)
-            self.prior_std.append(std)
-
         z = self.proj_decode(z)
         z = z.view(z.size(0), -1, self.start_width, self.start_width)
         return self.decoder_modules(z)
@@ -147,7 +130,7 @@ class CSRAE(nn.Module):
         # Sample from the mixture of gaussians -> extract random K
         gaussian = random.randint(0, self.K-1)
         distribution = D.MultivariateNormal(self.prior_means[gaussian], torch.diag( (self.prior_std[gaussian])**2 ) )# + torch.diag( torch.div(torch.ones(self.latent_dim), 1e2 )) )
-        latent = distribution.sample_n(samples_num).to(device)
+        latent = distribution.sample(samples_num).to(device)
         # latent = torch.randn(samples_num, self.latent_dim).to(device)
         return self.decoder(latent)
 
@@ -171,7 +154,37 @@ class CSRAE(nn.Module):
 
         cs_loss = torch.tensor(0.0)
 
-        first_term = []
+        first_term = .0
+        mean_sum = .0
+        var_sum = .0
+
+        for i in range(batch):
+            for j in range(self.K):
+                mean_sum += self.prior_means[j]
+                var_sum += log_var[i,:].exp() + self.prior_std[j].exp()
+
+        for i in range(batch):
+            first_term += ((mu[i,:] - mean_sum).T * torch.inverse(torch.diag(var_sum)) * (mu[i,:] - mean_sum) )
+
+        first_term = torch.mean( torch.Tensor( first_term ) )
+
+        first_term = self.lambd * first_term
+
+        second_term = .0
+        mean_sum = .0
+        var_sum = .0
+
+        for i in range(batch):
+            for j in range(self.K):
+                mean_sum += self.prior_means[j]
+                var_sum += (2 * self.prior_std[j].exp())
+
+        for i in range(self.K):
+            second_term += ((self.prior_means[i] - mean_sum).T * torch.inverse(torch.diag(var_sum)) * (self.prior_means[i] - mean_sum) )
+
+        second_term = second_term.mean()
+
+        second_term = -self.lambd * second_term
 
         '''
             Approximation of the first term: first factor is computed as 
@@ -185,46 +198,46 @@ class CSRAE(nn.Module):
             image in the batch.
             Finally we compute the sum over them and we get the first term
         '''
-        for i in range(batch):
+        # for i in range(batch):
 
-            summation = 0
+        #     summation = 0
 
-            for j in range(self.K):
+        #     for j in range(self.K):
 
-                norm = D.Normal( self.prior_means[j], log_var[i,:].exp() + self.prior_std[j].exp() )
+        #         norm = D.Normal( self.prior_means[j], log_var[i,:].exp() + self.prior_std[j].exp() )
 
-                val = torch.mean( norm.cdf( mu[i,:] ) ) 
+        #         val = torch.mean( norm.cdf( mu[i,:] ) ) 
 
-                summation += val
+        #         summation += val
 
-            first_term.append(summation)
+        #     first_term.append(summation)
 
-        first_term = torch.mean( torch.Tensor( first_term ) )
+        # first_term = torch.mean( torch.Tensor( first_term ) )
 
-        first_term = self.lambd * torch.log( first_term )
+        # first_term = self.lambd * torch.log( first_term )
 
-        second_term = torch.tensor(0.0)
+        # second_term = torch.tensor(0.0)
 
-        '''
-            Approximation of the second term: second factor is computed as 
+        # '''
+        #     Approximation of the second term: second factor is computed as 
 
-               - \lambda * \sum_{k,k'} \mathcal{N}( \mu_k | \mu_k', diag(\sigma^2_{k'} ))
+        #        - \lambda * \sum_{k,k'} \mathcal{N}( \mu_k | \mu_k', diag(\sigma^2_{k'} ))
 
-            Here only the prior is considered, by having a nested summation of the contribution of the different gaussians in the mixture
-        '''
-        for i in range(self.K):
+        #     Here only the prior is considered, by having a nested summation of the contribution of the different gaussians in the mixture
+        # '''
+        # for i in range(self.K):
 
-            for j in range(i):
+        #     for j in range(i):
 
-                norm = D.Normal( self.prior_means[j], 2 * self.prior_std[j].exp() )
+        #         norm = D.Normal( self.prior_means[j], 2 * self.prior_std[j].exp() )
 
-                val = torch.mean( norm.cdf( self.prior_means[i] ) )
+        #         val = torch.mean( norm.cdf( self.prior_means[i] ) )
 
-                second_term += val
+        #         second_term += val
 
-        second_term = second_term.mean()
+        # second_term = second_term.mean()
 
-        second_term = - self.lambd * torch.log( second_term )
+        # second_term = - self.lambd * torch.log( second_term )
 
         # Third term
         third_term = torch.tensor( - self.lambd * math.log( self.K ) )
