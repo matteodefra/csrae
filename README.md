@@ -25,12 +25,12 @@ For the sampling instead, we modify the classical sampling from a normal distrib
 
 The code is implemented in Pytorch, extending the base nn.Module with our custom implementation. 
 
-src                                     
-├─ csrae.py # Contains the implementation of the CS autoencoder           
-├─ experiment.py # Utility functions for training, validation, testing and sampling                 
-├─ main.py # Start point for the experiment                     
-├─ utils.py # Utility functions  
-└─ vae.py # Standard VAE implementation for comparison  
+📂src                                     
+├─ 📄csrae.py # Contains the implementation of the CS autoencoder           
+├─ 📄experiment.py # Utility functions for training, validation, testing and sampling                 
+├─ 📄main.py # Start point for the experiment                     
+├─ 📄utils.py # Utility functions  
+└─ 📄vae.py # Standard VAE implementation for comparison  
 
 
 ## Execution 
